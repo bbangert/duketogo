@@ -1,0 +1,141 @@
+import fs from 'fs';
+
+import { MarkovTree } from './tree';
+import { Brain } from './brain';
+import { Dictionary } from './dictionary';
+
+/**
+ * Brain file handler
+ *
+ * Provides capability to read and write C style binary brain files.
+ *
+ */
+export class BrainFileHandler {
+  private buffer: Buffer;
+  private cookie: string;
+  private order: number;
+  private loaded = false;
+
+  constructor() {
+    this.buffer = Buffer.alloc(0);
+    this.cookie = '';
+    this.order = 5;
+  }
+
+  /**
+   * Deserialize a brain file into a `Brain`.
+   *
+   * @param filename Brain file to read.
+   */
+  public deserialize(filename: string) {
+    this.buffer = fs.readFileSync(filename);
+    this.cookie = this.readWord(9);
+    this.order = this.read8();
+    const forward = this.readTree();
+    const backward = this.readTree();
+    const wordCount = this.read32();
+    const dictionary = new Dictionary();
+    for (let i = 0; i < wordCount; i++) {
+      const wordLen = this.read8();
+      dictionary.loadWord(i, this.readWord(wordLen));
+    }
+    this.loaded = true;
+    return {
+      order: this.order,
+      forward,
+      backward,
+      dictionary,
+    };
+  }
+
+  /**
+   * Serialize a `Brain` to the provided `filename`.
+   *
+   * @param filename Brain fiel to write.
+   * @param brain Brain to dump.
+   */
+  public serialize(filename: string, brain: Brain) {
+    const writer = fs.createWriteStream(filename);
+    const tempBuffer = Buffer.alloc(4);
+
+    function write8(num: number) {
+      tempBuffer.writeUInt8(num);
+      writer.write(tempBuffer.slice(0, 1));
+    }
+
+    function write16(num: number) {
+      tempBuffer.writeUInt16LE(num);
+      writer.write(tempBuffer.slice(0, 2));
+    }
+
+    function write32(num: number) {
+      tempBuffer.writeUInt32LE(num);
+      writer.write(tempBuffer);
+    }
+
+    function writeWord(word: string) {
+      const wordBuf = Buffer.from(word, 'utf-8');
+      write8(wordBuf.length);
+      writer.write(wordBuf);
+    }
+
+    function writeTree(tree: MarkovTree) {
+      write16(tree.symbol);
+      write32(tree.usage);
+      write16(tree.count);
+      const childCount = tree.children.length;
+      write16(childCount);
+      for (const node of tree.children) {
+        writeTree(node);
+      }
+    }
+
+    writeWord(this.cookie);
+    write8(this.order);
+    writeTree(brain.forward);
+    writeTree(brain.backward);
+    write32(brain.dictionary.length);
+    for (let i = 0; i < brain.dictionary.length; i++) {
+      writeWord(brain.dictionary.getWord(i) as string);
+    }
+    writer.end();
+  }
+
+  private readTree(): MarkovTree {
+    const [symbol, usage, count, childrenCount] = [
+      this.read16(),
+      this.read32(),
+      this.read16(),
+      this.read16(),
+    ];
+    const root = new MarkovTree(symbol, usage, count);
+    for (let i = 0; i < childrenCount; i++) {
+      root.children.push(this.readTree());
+    }
+    return root;
+  }
+
+  private readWord(length: number): string {
+    const raw = this.buffer.toString('ascii', 0, length);
+    this.buffer = this.buffer.slice(length);
+    return raw;
+  }
+
+  private read8(): number {
+    const num = this.buffer.readUInt8();
+    this.buffer = this.buffer.slice(1);
+    return num;
+  }
+
+  private read16(): number {
+    const num = this.buffer.readUInt16LE();
+    this.buffer = this.buffer.slice(2);
+    return num;
+  }
+
+  private read32(): number {
+    const num = this.buffer.readUInt32LE();
+    this.buffer = this.buffer.slice(4);
+    return num;
+  }
+}

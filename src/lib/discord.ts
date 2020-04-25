@@ -1,19 +1,23 @@
-import { Client, Message, DMChannel } from 'discord.js';
+import { Client, Message, DMChannel, Channel } from 'discord.js';
 import debug from 'debug';
 import * as R from 'ramda';
 
-import { Brain, tokenizeWords } from './brain';
-import { Dictionary } from './dictionary';
+import Config from '../config';
+import { Brain } from './megahal/brain';
+import { Command } from './commands/base';
 
 const logError = debug('bot:error');
 const logEvent = debug('bot:event');
 const logWarning = debug('bot:warning');
 
+const config = Config.getProperties();
+
 export class Discord {
   private client: Client;
   private userRegex: RegExp | undefined;
+  private commandPrefix = new RegExp(`^${config.commandPrefix}`);
 
-  constructor(private token: string, private brain: Brain) {
+  constructor(private token: string, private brain: Brain, private commands: Command[]) {
     this.client = new Client();
   }
 
@@ -38,6 +42,17 @@ export class Discord {
     return R.trim(message.content.slice(prefixed[0].length));
   }
 
+  private handleCommand(message: Message, groups: RegExpMatchArray) {
+    const rest = message.content.slice(groups[0].length);
+    const [commandName, ...remaining] = R.trim(rest).split(' ');
+    const remainder = remaining.join(' ');
+    for (const command of this.commands) {
+      if (command.commandName === commandName) {
+        command.runCommand(message, remainder);
+      }
+    }
+  }
+
   /**
    * Handle a message that the bot has received. If it's directed to the bot
    * or prefixed to it, learn from it if its long enough and reply with the
@@ -50,24 +65,19 @@ export class Discord {
     if (!this.client.user || message.author.id === this.client.user.id) {
       return;
     }
+
+    // Is this a command?
+    const commandMatch = message.content.match(this.commandPrefix);
+    if (message.channel instanceof Channel && commandMatch) {
+      return this.handleCommand(message, commandMatch);
+    }
+
+    // If this is intended for the Duke response, continue.
     const content = this.parseContent(message);
     if (content === null) {
       return;
     }
-    let keywords: Dictionary;
-    let tokenWords: string[] = [];
-    if (content.length > 0) {
-      tokenWords = tokenizeWords(content);
-      this.brain.learn(tokenWords);
-      keywords = this.brain.makeKeywords(tokenWords);
-    } else {
-      keywords = new Dictionary();
-    }
-    let reply = this.brain.getReply(keywords, tokenWords);
-    if (reply.length > 1500) {
-      reply = reply.slice(0, 1447) + '...';
-    }
-    message.reply(reply);
+    message.reply(this.brain.communicate(content, true));
     logEvent('Sent a reply');
   }
 

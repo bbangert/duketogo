@@ -30,6 +30,12 @@ const conf = convict({
       format: 'String',
     },
   },
+  commandPrefix: {
+    default: '!',
+    doc: 'Command prefix to look for on channels',
+    env: 'COMMAND_PREFIX',
+    format: 'String',
+  },
   sentryDsn: {
     default: '',
     doc: 'Sentry DSN for error and log reporting',

@@ -1,5 +1,5 @@
 import { Dictionary } from './dictionary';
-import { randomIntFromInterval } from './utils';
+import { randomIntFromInterval } from '../utils';
 import { MarkovTree } from './tree';
 import { DEFAULT_AUXWORDS } from './words';
 import * as R from 'ramda';

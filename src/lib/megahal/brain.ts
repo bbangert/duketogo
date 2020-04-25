@@ -12,7 +12,7 @@ import {
   ERROR_WORD,
   END_WORD,
 } from './words';
-import { randomIntFromInterval } from './utils';
+import { randomIntFromInterval } from '../utils';
 
 const logInfo = debug('bot:info');
 
@@ -137,6 +137,15 @@ export class Brain {
    */
   public toFile() {
     this.fileHandler.serialize(this.filename, this);
+  }
+
+  public communicate(phrase: string, learn = false) {
+    const tokenWords = tokenizeWords(phrase);
+    if (learn) {
+      this.learn(tokenWords);
+    }
+    const keywords = this.makeKeywords(tokenWords);
+    return this.getReply(keywords, tokenWords);
   }
 
   /**

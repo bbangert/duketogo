@@ -36,8 +36,10 @@
     "discord.js": "^12.2.0",
     "dotenv": "^8.2.0",
     "ramda": "^0.27.0",
+    "reflect-metadata": "^0.1.13",
     "sqlite3": "^4.1.1",
     "tslib": "^1.11.1",
+    "typedi": "^0.8.0",
     "utf-8-validate": "^5.0.2"
   },
   "devDependencies": {

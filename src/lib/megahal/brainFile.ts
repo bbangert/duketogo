@@ -3,7 +3,6 @@ import fs from 'fs';
 import { MarkovTree } from './tree';
 import { Brain } from './brain';
 import { Dictionary } from './dictionary';
-
 /**
  * Brain file handler
  *
@@ -22,12 +21,7 @@ export class BrainFileHandler {
     this.order = 5;
   }
 
-  /**
-   * Deserialize a brain file into a `Brain`.
-   *
-   * @param filename Brain file to read.
-   */
-  public deserialize(filename: string) {
+  private deserializeFile(filename: string) {
     this.buffer = fs.readFileSync(filename);
     this.cookie = this.readWord(9);
     this.order = this.read8();
@@ -46,6 +40,32 @@ export class BrainFileHandler {
       backward,
       dictionary,
     };
+  }
+
+  /**
+   * Deserialize a brain file into a `Brain`.
+   *
+   * @param filename Brain file to read.
+   */
+  public deserialize(filename: string) {
+    try {
+      return this.deserializeFile(filename);
+    } catch (err) {
+      console.error('Error reading file, checking for backup.');
+    }
+    if (!fs.existsSync(`${filename}.bak`)) {
+      console.log('No backup file found, exiting.');
+      process.exit(1);
+    }
+    try {
+      const result = this.deserializeFile(`${filename}.bak`);
+      fs.copyFileSync(`${filename}.bak`, filename);
+      console.log('Backup file read safely, copied over original');
+      return result;
+    } catch (err) {
+      console.error('Unable to read backup brain file');
+      process.exit(1);
+    }
   }
 
   /**
@@ -103,6 +123,7 @@ export class BrainFileHandler {
       writeWord(brain.dictionary.getWord(i) as string);
     }
     fs.closeSync(fd);
+    fs.copyFileSync(filename, `${filename}.bak`);
   }
 
   private readTree(): MarkovTree {

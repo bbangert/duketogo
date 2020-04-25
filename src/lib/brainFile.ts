@@ -55,28 +55,32 @@ export class BrainFileHandler {
    * @param brain Brain to dump.
    */
   public serialize(filename: string, brain: Brain) {
-    const writer = fs.createWriteStream(filename);
+    const fd = fs.openSync(filename, 'w');
     const tempBuffer = Buffer.alloc(4);
+
+    const write = (buf: Buffer) => {
+      fs.writeSync(fd, buf);
+    };
 
     function write8(num: number) {
       tempBuffer.writeUInt8(num);
-      writer.write(tempBuffer.slice(0, 1));
+      write(tempBuffer.slice(0, 1));
     }
 
     function write16(num: number) {
       tempBuffer.writeUInt16LE(num);
-      writer.write(tempBuffer.slice(0, 2));
+      write(tempBuffer.slice(0, 2));
     }
 
     function write32(num: number) {
       tempBuffer.writeUInt32LE(num);
-      writer.write(tempBuffer);
+      write(tempBuffer);
     }
 
     function writeWord(word: string) {
-      const wordBuf = Buffer.from(word, 'utf-8');
+      const wordBuf = Buffer.from(word, 'ascii');
       write8(wordBuf.length);
-      writer.write(wordBuf);
+      write(wordBuf);
     }
 
     function writeTree(tree: MarkovTree) {
@@ -90,7 +94,7 @@ export class BrainFileHandler {
       }
     }
 
-    writeWord(this.cookie);
+    write(Buffer.from(this.cookie, 'ascii'));
     write8(this.order);
     writeTree(brain.forward);
     writeTree(brain.backward);
@@ -98,7 +102,7 @@ export class BrainFileHandler {
     for (let i = 0; i < brain.dictionary.length; i++) {
       writeWord(brain.dictionary.getWord(i) as string);
     }
-    writer.end();
+    fs.closeSync(fd);
   }
 
   private readTree(): MarkovTree {

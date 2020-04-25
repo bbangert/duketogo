@@ -12,7 +12,7 @@ export class MarkovTree {
    */
   public addSymbol(symbol: number) {
     const child = this.getChild(symbol, true);
-    child.count += 1;
+    if (child.count < 65535) child.count += 1;
     this.usage += 1;
     return child;
   }
@@ -24,9 +24,9 @@ export class MarkovTree {
    * @param symbol Symbol to search for.
    * @param add Whether to add the child if it doesn't exist.
    */
-  public getChild(symbol: number, add?: false): MarkovTree | null;
   public getChild(symbol: number, add?: true): MarkovTree;
-  public getChild(symbol: number, add = true): MarkovTree | null {
+  public getChild(symbol: number, add?: boolean): MarkovTree | null;
+  public getChild(symbol: number, add: boolean = false): MarkovTree | null {
     const childIndex = MarkovTree.binsearch(this.children, symbol, 0, this.children.length - 1);
     if (childIndex !== null) {
       return this.children[childIndex];

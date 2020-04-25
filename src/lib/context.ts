@@ -2,6 +2,7 @@ import { Dictionary } from './dictionary';
 import { randomIntFromInterval } from './utils';
 import { MarkovTree } from './tree';
 import { DEFAULT_AUXWORDS } from './words';
+import * as R from 'ramda';
 
 export class Context {
   private usedKey = false;
@@ -13,7 +14,7 @@ export class Context {
   }
 
   constructor(tree: MarkovTree, private dictionary: Dictionary, private order: number) {
-    this.trees = new Array(order).fill(null);
+    this.trees = new Array(order + 1).fill(null);
     this.trees[0] = tree;
   }
 
@@ -43,20 +44,24 @@ export class Context {
    *
    * @param symbol Symbol to locate in children
    */
-  public update(symbol: number) {
-    for (let i = this.order - 1; i >= 0; i--) {
+  public update(symbol: number, add = false) {
+    for (const i of R.reverse(R.range(1, this.order + 1))) {
       const node = this.trees[i - 1];
       if (node) {
-        this.trees[i] = node.addSymbol(symbol);
+        if (add) {
+          this.trees[i] = node.addSymbol(symbol);
+        } else {
+          this.trees[i] = node.getChild(symbol);
+        }
       }
     }
   }
 
   public babble(keywords: Dictionary, replies: string[]): number {
     let node: MarkovTree | null | undefined;
-    for (let i = 0; i < this.order; i++) {
-      if (this.trees[i]) {
-        node = this.trees[i];
+    for (node of R.reverse(R.take(this.order, this.trees))) {
+      if (node) {
+        break;
       }
     }
     if (!node || node.children.length === 0) {
@@ -71,16 +76,17 @@ export class Context {
       if (!word) {
         throw Error('Node is stored with a symbol that isnt in the dictionary');
       }
-      if (keywords.hasWord(word) && (this.usedKey || !DEFAULT_AUXWORDS.includes(word))) {
+      if (
+        keywords.hasWord(word) &&
+        (this.usedKey || !DEFAULT_AUXWORDS.includes(word)) &&
+        !replies.includes(word)
+      ) {
         this.usedKey = true;
         break;
       }
       count -= node.children[index].count;
-      if (index >= node.children.length - 1) {
-        index = 0;
-      } else {
-        index += 1;
-      }
+      index += 1;
+      if (index >= node.children.length) index = 0;
     }
     return symbol;
   }

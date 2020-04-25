@@ -10,6 +10,12 @@ import path from 'path';
 dotenv.config();
 
 const conf = convict({
+  brainFile: {
+    default: 'megahal.brn',
+    doc: 'Brain file to run from',
+    env: 'BRAIN_FILE',
+    format: 'String',
+  },
   env: {
     default: 'production',
     doc: 'The current node.js environment',

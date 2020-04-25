@@ -1,3 +1,6 @@
+/**
+ * Dictionary holds a set of words, with lookups by symbol or word.
+ */
 export class Dictionary {
   private wordId: { [key: string]: number };
   private idWord: { [key: number]: string };

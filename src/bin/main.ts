@@ -1,18 +1,11 @@
-import 'reflect-metadata';
-
-import yargs from 'yargs';
-
 import { Brain } from '../lib/brain';
 import { Discord } from '../lib/discord';
-
-const argv = yargs.options({
-  filename: { type: 'string', demandOption: true, desc: 'Brain file to load' },
-}).argv;
+import Config from '../config';
 
 async function run() {
-  const { filename } = argv;
-  const brain = Brain.fromFile(filename);
-  const discord = new Discord(brain);
+  const config = Config.getProperties();
+  const brain = Brain.fromFile(config.brainFile);
+  const discord = new Discord(config.discord.token, brain);
   discord.start();
 }
 

@@ -1,3 +1,6 @@
+import R from 'ramda';
+import debug from 'debug';
+
 import { MarkovTree } from './tree';
 import { Context } from './context';
 import { BrainFileHandler } from './brainFile';
@@ -9,6 +12,9 @@ import {
   ERROR_WORD,
   END_WORD,
 } from './words';
+import { randomIntFromInterval } from './utils';
+
+const logInfo = debug('bot:info');
 
 /**
  * Determine whether this position is a boundary, depending on the characters
@@ -89,7 +95,7 @@ export function tokenizeWords(text: string): string[] {
     }
   }
 
-  if (words[words.length - 1][0].match(/[a-z0-9]/)) {
+  if (words[words.length - 1][0].match(/[a-z0-9]/i)) {
     words.push('.');
   } else {
     const lastWord = words[words.length - 1];
@@ -100,47 +106,85 @@ export function tokenizeWords(text: string): string[] {
   return words;
 }
 
+/**
+ * Megahal Brain
+ *
+ * Stores main markov forward/backward branches and lookup dictionary.
+ */
 export class Brain {
   constructor(
     public forward: MarkovTree,
     public backward: MarkovTree,
     public dictionary: Dictionary,
     private order: number,
-    private fileHandler: BrainFileHandler
+    private fileHandler: BrainFileHandler,
+    private filename: string
   ) {}
 
+  /**
+   * Load a brain from a file.
+   *
+   * @param filename File to load the brain from.
+   */
   public static fromFile(filename: string): Brain {
     const fileHandler = new BrainFileHandler();
     const { forward, backward, dictionary, order } = fileHandler.deserialize(filename);
-    return new Brain(forward, backward, dictionary, order, fileHandler);
+    return new Brain(forward, backward, dictionary, order, fileHandler, filename);
   }
 
+  /**
+   * Save the current brain to a file.
+   */
+  public toFile() {
+    this.fileHandler.serialize(this.filename, this);
+  }
+
+  /**
+   * Learn a sequence of words in the brain.
+   *
+   * @param words Tokenized set of words to learn.
+   */
   public learn(words: string[]) {
-    if (words.length > this.order) {
-      for (let i = 0; i < words.length - this.order; i++) {
-        const learnWords = words.slice(i, i + this.order);
-        let context = new Context(this.forward, this.dictionary, this.order);
-        for (const word of learnWords) {
-          context.update(this.dictionary.addWord(word));
-        }
-        context = new Context(this.backward, this.dictionary, this.order);
-        for (const word of learnWords.slice().reverse()) {
-          context.update(this.dictionary.getSymbol(word) as number);
-        }
-      }
+    if (this.order > words.length) {
+      return;
     }
+    let context = new Context(this.forward, this.dictionary, this.order);
+    for (const word of words) {
+      context.update(this.dictionary.addWord(word), true);
+    }
+    context.update(1, true);
+    context = new Context(this.backward, this.dictionary, this.order);
+    for (const word of R.reverse(words)) {
+      context.update(this.dictionary.addWord(word), true);
+    }
+    context.update(1, true);
   }
 
-  public getReply(keywords: Dictionary): string {
-    let output = this.generateReplyWords();
+  /**
+   * Get the best scored reply from the brain.
+   *
+   * @param keywords Unique set of words provided as input.
+   */
+  public getReply(keywords: Dictionary, words: string[]): string {
+    // let output = this.generateReplyWords();
+    let output: string[] = [];
     let maxSurprise = -1.0;
     const basetime = Date.now();
     let count = 0;
+    let replyLength = 0;
+    const phrase = words.join('');
     while (Date.now() - basetime < 300) {
       const reply = this.generateReplyWords(keywords);
+      if (reply.join('') === phrase) {
+        continue;
+      }
       const surprise = this.evaluateReply(keywords, reply);
       if (reply && surprise > maxSurprise) {
+        if (reply.length < replyLength && randomIntFromInterval(0, 10) <= 5) {
+          continue;
+        }
         maxSurprise = surprise;
+        replyLength = reply.length;
         output = reply;
       }
       count++;
@@ -148,94 +192,12 @@ export class Brain {
     return output.join('').toLowerCase();
   }
 
-  public evaluateReply(keywords: Dictionary, words: string[]): number {
-    const state = { num: 0, entropy: 0.0 };
-
-    if (words.length > 0) {
-      const evaluate = (tree: MarkovTree, replywords: string[]) => {
-        const usedKeywords = new Set(keywords.words());
-        const context = new Context(tree, this.dictionary, this.order);
-        for (const word of replywords) {
-          const symbol = this.dictionary.getSymbol(word) as number;
-          context.update(symbol);
-          if (usedKeywords.has(word)) {
-            usedKeywords.delete(word);
-            let prob = 0.0;
-            let count = 0;
-            state.num += 1;
-            for (let i = 0; i < this.order; i++) {
-              const node = context.trees[i];
-              if (node) {
-                const child = node.getChild(symbol, false);
-                if (child) {
-                  prob += child.count / node.usage;
-                }
-                count += 1;
-              }
-            }
-            if (count > 0) {
-              state.entropy -= Math.log(prob / count);
-            }
-          }
-        }
-      };
-
-      evaluate(this.forward, words);
-      evaluate(this.backward, words.slice().reverse());
-
-      if (state.num >= 8) {
-        state.entropy /= Math.sqrt(state.num - 1);
-      }
-      if (state.num >= 16) {
-        state.entropy /= state.num;
-      }
-    }
-    return state.entropy;
-  }
-
-  public generateReplyWords(keyword?: Dictionary): string[] {
-    const keywords = keyword ?? new Dictionary();
-    const replies: string[] = [];
-    let context = new Context(this.forward, this.dictionary, this.order);
-    let start = true;
-    while (true) {
-      let symbol: number;
-      if (start) {
-        symbol = context.seed(keywords);
-        start = false;
-      } else {
-        symbol = context.babble(keywords, replies);
-      }
-      const word = this.dictionary.getWord(symbol);
-      if ([ERROR_WORD, END_WORD].includes(word || END_WORD)) {
-        break;
-      }
-      replies.push(word as string);
-      context.update(symbol);
-    }
-
-    context = new Context(this.backward, this.dictionary, this.order);
-    if (replies) {
-      const reversed = replies
-        .slice(0, Math.min(this.order, replies.length - 1))
-        .reverse()
-        .slice(0, this.order);
-      for (const word of reversed) {
-        context.update(this.dictionary.getSymbol(word) as number);
-      }
-    }
-    while (true) {
-      const symbol = context.babble(keywords, replies);
-      const word = this.dictionary.getWord(symbol);
-      if ([ERROR_WORD, END_WORD].includes(word || END_WORD)) {
-        break;
-      }
-      replies.unshift(word as string);
-      context.update(symbol);
-    }
-    return replies;
-  }
-
+  /**
+   * Create a set of keywords suitable for use with getting a
+   * reply.
+   *
+   * @param words Tokenized word input.
+   */
   public makeKeywords(words: string[]): Dictionary {
     const uniques = Array.from(new Set(words));
     const keywords = new Dictionary();
@@ -272,5 +234,86 @@ export class Brain {
       }
     }
     return keywords;
+  }
+
+  private evaluateReply(keywords: Dictionary, words: string[]): number {
+    const state = { num: 0, entropy: 0.0 };
+
+    if (words.length > 0) {
+      const evaluate = (tree: MarkovTree, replywords: string[]) => {
+        const context = new Context(tree, this.dictionary, this.order);
+        for (const word of replywords) {
+          const symbol = this.dictionary.getSymbol(word) as number;
+          context.update(symbol);
+          if (keywords.hasWord(word)) {
+            let prob = 0.0;
+            let count = 0;
+            state.num += 1;
+            for (const node of context.trees) {
+              if (node) {
+                const child = node.getChild(symbol, false);
+                if (child) {
+                  prob += child.count / node.usage;
+                }
+                count += 1;
+              }
+            }
+            if (count > 0) {
+              state.entropy -= Math.log(prob / count);
+            }
+          }
+        }
+      };
+
+      evaluate(this.forward, words);
+      evaluate(this.backward, R.reverse(words));
+
+      if (state.num >= 8) {
+        state.entropy /= Math.sqrt(state.num - 1);
+      }
+      if (state.num >= 16) {
+        state.entropy /= state.num;
+      }
+    }
+    return state.entropy;
+  }
+
+  private generateReplyWords(keyword?: Dictionary): string[] {
+    const keywords = keyword ?? new Dictionary();
+    const replies: string[] = [];
+    let context = new Context(this.forward, this.dictionary, this.order);
+    let start = true;
+    while (true) {
+      let symbol: number;
+      if (start) {
+        symbol = context.seed(keywords);
+        start = false;
+      } else {
+        symbol = context.babble(keywords, replies);
+      }
+      const word = this.dictionary.getWord(symbol);
+      if ([ERROR_WORD, END_WORD].includes(word || END_WORD)) {
+        break;
+      }
+      replies.push(word as string);
+      context.update(symbol);
+    }
+
+    context = new Context(this.backward, this.dictionary, this.order);
+    if (replies) {
+      for (const word of R.takeLast(this.order, R.reverse(replies))) {
+        context.update(this.dictionary.getSymbol(word) as number);
+      }
+    }
+    while (true) {
+      const symbol = context.babble(keywords, replies);
+      const word = this.dictionary.getWord(symbol);
+      if ([ERROR_WORD, END_WORD].includes(word || END_WORD)) {
+        break;
+      }
+      replies.unshift(word as string);
+      context.update(symbol);
+    }
+    return replies;
   }
 }

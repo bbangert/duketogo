@@ -1,6 +1,7 @@
 import { Client, Message, DMChannel, Channel } from 'discord.js';
 import debug from 'debug';
 import * as R from 'ramda';
+import { setInterval } from 'timers';
 
 import Config from '../config';
 import { Brain } from './megahal/brain';
@@ -12,10 +13,14 @@ const logWarning = debug('bot:warning');
 
 const config = Config.getProperties();
 
+// 2 hour interval (2 * hour * minute * ms)
+const TWO_HOURS = 2 * 60 * 60 * 1000;
+
 export class Discord {
   private client: Client;
   private userRegex: RegExp | undefined;
   private commandPrefix = new RegExp(`^${config.commandPrefix}`);
+  private saveTimer: NodeJS.Timeout | undefined;
 
   constructor(private token: string, private brain: Brain, private commands: Command[]) {
     this.client = new Client();
@@ -81,12 +86,25 @@ export class Discord {
     logEvent('Sent a reply');
   }
 
+  private async saveBrain() {
+    if (this.client.user) {
+      await this.client.user.setPresence({
+        activity: { name: '🧠👉🚽' },
+        status: 'dnd',
+      });
+    }
+    this.brain.toFile();
+    if (this.client.user) {
+      await this.client.user.setPresence({ status: 'online', activity: { name: '' } });
+    }
+  }
+
   /**
    * Start up the discord bot.
    *
    * Will destroy the client when the process exits.
    */
-  start() {
+  async start() {
     this.client.on('message', (message: Message) => this.handleMessage(message));
     this.client.on('error', logError);
     this.client.on('warn', logWarning);
@@ -98,12 +116,16 @@ export class Discord {
       }
     });
     process.on('SIGINT', () => this.shutdown());
-    this.client.login(this.token);
+    this.saveTimer = setInterval(() => this.saveBrain(), TWO_HOURS);
+    return this.client.login(this.token);
   }
 
   private shutdown() {
     console.log('Shutting down client');
     this.client.destroy();
+    if (this.saveTimer) {
+      clearInterval(this.saveTimer);
+    }
     console.log('Shutting down! .... writing brainfile...');
     this.brain.toFile();
   }

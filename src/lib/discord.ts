@@ -19,7 +19,7 @@ const TWO_HOURS = 2 * 60 * 60 * 1000;
 export class Discord {
   private client: Client;
   private userRegex: RegExp | undefined;
-  private commandPrefix = new RegExp(`^${config.commandPrefix}`);
+  private commandPrefix = new RegExp(`^${config.commandPrefix.replace(/['"]/g, '')}`);
   private saveTimer: NodeJS.Timeout | undefined;
 
   constructor(private token: string, private brain: Brain, private commands: Command[]) {
@@ -115,6 +115,7 @@ export class Discord {
         this.userRegex = new RegExp(`^<@[!&]?${this.client.user.id}>`);
       }
     });
+    process.on('SIGTERM', () => this.shutdown());
     process.on('SIGINT', () => this.shutdown());
     this.saveTimer = setInterval(() => this.saveBrain(), TWO_HOURS);
     return this.client.login(this.token);
@@ -128,5 +129,6 @@ export class Discord {
     }
     console.log('Shutting down! .... writing brainfile...');
     this.brain.toFile();
+    process.exit(0);
   }
 }

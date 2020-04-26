@@ -12,6 +12,4 @@ WORKDIR /app
 USER node
 COPY --from=builder --chown=node /app/dist ./dist/
 COPY --from=builder --chown=node /app/node_modules ./node_modules/
-COPY --from=builder --chown=node /app/version.json /app/version.json
-COPY --chown=node config/*.json ./config/
 COPY --chown=node package* ./

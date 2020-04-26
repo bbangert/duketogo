@@ -1,13 +1,14 @@
 {
   "name": "duke-togo",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Duke Togo",
   "scripts": {
-    "build": "./node_modules/typescript/bin/tsc",
+    "build": "./node_modules/typescript/bin/tsc && cp src/lib/commands/aolsay.txt dist/lib/commands/aolsay.txt",
     "lint": "npm-run-all --parallel lint:*",
     "audit": "npm audit --json | audit-filter --nsp-config=.nsprc --audit=-",
     "lint:tslint": "./node_modules/tslint/bin/tslint -p .",
     "watch": "tsc -w",
+    "start": "DEBUG=bot* NODE_ENV=development node ./dist/bin/main.js",
     "start-dev": "NODE_ENV=development ts-node-dev ./src/bin/main.ts",
     "start-dev-debug": "NODE_ENV=development ts-node-dev --inspect=0.0.0.0:5860 -- ./src/bin/main.ts",
     "test": "./node_modules/mocha/bin/mocha -r ts-node/register src/test/**/*.spec.ts src/test/**/**/*.spec.ts src/test/**/**/**/*.spec.ts"

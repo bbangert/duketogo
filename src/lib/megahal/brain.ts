@@ -143,7 +143,7 @@ export class Brain {
 
   public communicate(phrase: string, learn = false) {
     const tokenWords = tokenizeWords(phrase);
-    if (learn && tokenWords.length < config.maxInputTokens) {
+    if (learn && tokenWords.length < config.maxInputTokens && !phrase.match(/\n/g)) {
       this.learn(tokenWords);
     }
     const keywords = this.makeKeywords(tokenWords);

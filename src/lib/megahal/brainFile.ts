@@ -3,6 +3,7 @@ import fs from 'fs';
 import { MarkovTree } from './tree';
 import { Brain } from './brain';
 import { Dictionary } from './dictionary';
+
 /**
  * Brain file handler
  *
@@ -98,7 +99,7 @@ export class BrainFileHandler {
     }
 
     function writeWord(word: string) {
-      const wordBuf = Buffer.from(word, 'ascii');
+      const wordBuf = Buffer.from(word, 'utf-8');
       write8(wordBuf.length);
       write(wordBuf);
     }
@@ -141,7 +142,7 @@ export class BrainFileHandler {
   }
 
   private readWord(length: number): string {
-    const raw = this.buffer.toString('ascii', 0, length);
+    const raw = this.buffer.toString('utf-8', 0, length);
     this.buffer = this.buffer.slice(length);
     return raw;
   }

@@ -3,6 +3,7 @@ import debug from 'debug';
 
 import { MarkovTree } from './tree';
 import { Context } from './context';
+import Config from '../../config';
 import { BrainFileHandler } from './brainFile';
 import { Dictionary } from './dictionary';
 import {
@@ -15,6 +16,7 @@ import {
 import { randomIntFromInterval } from '../utils';
 
 const logInfo = debug('bot:info');
+const config = Config.getProperties();
 
 /**
  * Determine whether this position is a boundary, depending on the characters
@@ -141,7 +143,7 @@ export class Brain {
 
   public communicate(phrase: string, learn = false) {
     const tokenWords = tokenizeWords(phrase);
-    if (learn) {
+    if (learn && tokenWords.length < config.maxInputTokens) {
       this.learn(tokenWords);
     }
     const keywords = this.makeKeywords(tokenWords);
@@ -184,7 +186,7 @@ export class Brain {
     const phrase = words.join('');
     while (Date.now() - basetime < 300) {
       const reply = this.generateReplyWords(keywords);
-      if (reply.join('') === phrase) {
+      if (reply.join('') === phrase || reply.length > config.maxOutputTokens) {
         continue;
       }
       const surprise = this.evaluateReply(keywords, reply);

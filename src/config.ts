@@ -16,6 +16,14 @@ const conf = convict({
     env: 'BRAIN_FILE',
     format: 'String',
   },
+  brainDatabase: {
+    filename: {
+      default: 'megahal.sqlite',
+      doc: 'Brain sqlite file to run from',
+      env: 'BRAIN_SQLITE',
+      format: 'String',
+    },
+  },
   env: {
     default: 'production',
     doc: 'The current node.js environment',
@@ -29,6 +37,18 @@ const conf = convict({
       env: 'DISCORD_TOKEN',
       format: 'String',
     },
+  },
+  maxOutputTokens: {
+    default: 1000,
+    doc: 'Max output tokens to allow',
+    env: 'MAX_OUTPUT_TOKENS',
+    format: 'Number',
+  },
+  maxInputTokens: {
+    default: 1000,
+    doc: 'Max input tokens to learn from',
+    env: 'MAX_INPUT_TOKENS',
+    format: 'Number',
   },
   commandPrefix: {
     default: '!',

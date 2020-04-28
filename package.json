@@ -36,6 +36,7 @@
     "debug": "^4.1.1",
     "discord.js": "^12.2.0",
     "dotenv": "^8.2.0",
+    "knex": "^0.21.0",
     "ramda": "^0.27.0",
     "reflect-metadata": "^0.1.13",
     "sqlite3": "^4.1.1",

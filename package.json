@@ -1,6 +1,6 @@
 {
   "name": "duke-togo",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Duke Togo",
   "scripts": {
     "build": "./node_modules/typescript/bin/tsc && cp src/lib/commands/aolsay.txt dist/lib/commands/aolsay.txt",

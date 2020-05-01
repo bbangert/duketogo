@@ -15,7 +15,12 @@ export class Stocks implements Command {
 
   private async news(message: Message, rest: string[]) {
     const symbol = rest[0];
-    const results = await IEX.news(symbol, 1);
+    let results;
+    try {
+      results = await IEX.news(symbol, 1);
+    } catch (err) {
+      return this.noResult(message, symbol);
+    }
     if (results.length === 0) {
       return this.noResult(message, symbol);
     }
@@ -33,7 +38,12 @@ export class Stocks implements Command {
 
   private async crypto(message: Message, rest: string[]) {
     const symbol = rest[0];
-    const result = await IEX.cryptoQuote(symbol);
+    let result;
+    try {
+      result = await IEX.cryptoQuote(symbol);
+    } catch (err) {
+      return this.noResult(message, symbol);
+    }
     if (!result) {
       return this.noResult(message, symbol);
     }
@@ -47,7 +57,12 @@ export class Stocks implements Command {
 
   private async quote(message: Message, rest: string[]) {
     const symbol = rest[0];
-    const result = await IEX.quote(symbol);
+    let result;
+    try {
+      result = await IEX.quote(symbol);
+    } catch (err) {
+      return this.noResult(message, symbol);
+    }
     if (!result) {
       return this.noResult(message, symbol);
     }

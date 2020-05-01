@@ -16,10 +16,17 @@ const config = Config.getProperties();
 // 2 hour interval (2 * hour * minute * ms)
 const TWO_HOURS = 2 * 60 * 60 * 1000;
 
+const COMMAND_PREFIX = config.commandPrefix.replace(/['"]/g, '');
+
+const ALIASES = {
+  '💹': '📈 📉',
+  '😱': 'aolsay',
+};
+
 export class Discord {
   private client: Client;
   private userRegex: RegExp | undefined;
-  private commandPrefix = new RegExp(`^${config.commandPrefix.replace(/['"]/g, '')}`);
+  private commandPrefix = new RegExp(`^${COMMAND_PREFIX}`);
   private saveTimer: NodeJS.Timeout | undefined;
 
   constructor(private token: string, private brain: Brain, private commands: Command[]) {
@@ -39,7 +46,6 @@ export class Discord {
     if (message.channel instanceof DMChannel) {
       return message.content.trim();
     }
-
     const prefixed = this.userRegex ? message.content.match(this.userRegex) : null;
     if (!prefixed) {
       return null;
@@ -47,8 +53,7 @@ export class Discord {
     return R.trim(message.content.slice(prefixed[0].length));
   }
 
-  private handleCommand(message: Message, groups: RegExpMatchArray) {
-    const rest = message.content.slice(groups[0].length);
+  private handleCommand(message: Message, rest: string) {
     const [commandName, ...remaining] = R.trim(rest).split(' ');
     const remainder = remaining.join(' ');
     for (const command of this.commands) {
@@ -72,9 +77,19 @@ export class Discord {
     }
 
     // Is this a command?
+    // First check for command aliases
+    for (const [alias, value] of Object.entries(ALIASES)) {
+      if (message.content.startsWith(alias)) {
+        message.content = message.content.replace(alias, value);
+        return this.handleCommand(message, message.content);
+      }
+    }
+
+    // Now for command prefix.
     const commandMatch = message.content.match(this.commandPrefix);
     if (message.channel instanceof Channel && commandMatch) {
-      return this.handleCommand(message, commandMatch);
+      const rest = message.content.slice(commandMatch[0].length);
+      return this.handleCommand(message, rest);
     }
 
     // If this is intended for the Duke response, continue.

@@ -37,6 +37,7 @@ function boundary(text: string, position: number): boolean {
   if (
     text[position] === "'" &&
     text[position - 1].match(/[a-z]/i) &&
+    position + 1 <= text.length &&
     text[position + 1].match(/[a-z]/i)
   ) {
     return false;

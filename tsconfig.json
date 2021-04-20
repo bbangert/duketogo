@@ -1,12 +1,11 @@
 {
   "compileOnSave": true,
   "compilerOptions": {
-    "target": "es6",
+    "target": "ES2020",
     "module": "commonjs",
-    "lib": ["es2018", "ESNext.AsyncIterable", "dom"],
+    "lib": ["ESNext.AsyncIterable", "dom", "ES2020"],
     "outDir": "./dist",
     "sourceMap": true,
-    "noEmitOnError": true,
     "inlineSources": true,
     "strict": true,
     "esModuleInterop": true,
@@ -15,6 +14,7 @@
     "forceConsistentCasingInFileNames": true,
     "noEmitHelpers": true,
     "importHelpers": true,
+    "allowSyntheticDefaultImports": true,
     "typeRoots": ["./types", "node_modules/@types"]
   },
   "include": ["./src"],

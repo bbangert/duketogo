@@ -1,3 +1,5 @@
+import 'source-map-support/register';
+
 import 'reflect-metadata';
 
 import * as Sentry from '@sentry/node';
